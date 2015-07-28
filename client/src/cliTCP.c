@@ -29,13 +29,13 @@ int main(int argc, char *argv[])
 {
   #define MAXSIZE 1000000 
   struct sockaddr_in Local, Serv;
-  char string_remote_ip_address[100];
-  short int remote_port_number, local_port_number;
+  char string_remote_ip_address[100] = 127.0.0.1;
+  short int remote_port_number = 5000, local_port_number;
   int socketfd, OptVal, msglen, Fromlen, ris;
   int n, i, nread, nwrite, len;
   char buf[MAXSIZE];
   char msg[MAXSIZE];   // ="012345ABCD";
-
+/*
   for(i=0;i<MAXSIZE;i++) msg[i]='a';
   msg[MAXSIZE-1]='\0';
   
@@ -45,7 +45,7 @@ int main(int argc, char *argv[])
     strncpy(string_remote_ip_address, argv[1], 99);
     remote_port_number = atoi(argv[2]);
   }
-
+*/
   /* get a datagram socket */
   printf ("socket()\n");
   socketfd = socket(AF_INET, SOCK_STREAM, 0);

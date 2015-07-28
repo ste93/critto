@@ -50,6 +50,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include "btreelic.h"
 #ifdef WINDOWS
 #define bool char
 #define false 0
@@ -65,14 +66,7 @@
 #define MIN_ORDER 3
 #define MAX_ORDER 20
 
-// Constants for printing part or all of the GPL license.
-#define LICENSE_FILE "LICENSE.txt"
-#define LICENSE_WARRANTEE 0
-#define LICENSE_WARRANTEE_START 592
-#define LICENSE_WARRANTEE_END 624
-#define LICENSE_CONDITIONS 1
-#define LICENSE_CONDITIONS_START 70
-#define LICENSE_CONDITIONS_END 625
+
 
 // TYPES.
 /* type of data in the database */
@@ -173,11 +167,7 @@ bool verbose_output = false;
 
 // Output and utility.
 
-void license_notice( void );
-void print_license( int licence_part );
-void usage_1( void );
-void usage_2( void );
-void usage_3( void );
+
 void enqueue( node * new_node );
 node * dequeue( void );
 int height( node * root );
@@ -226,93 +216,6 @@ node * delete_key( node * root, int key );
 
 // OUTPUT AND UTILITIES
 
-/* Copyright and license notice to user at startup. 
- */
-void license_notice( void ) {
-	printf("bpt version %s -- Copyright (C) 2010  Amittai Aviram "
-			"http://www.amittai.com\n", Version);
-	printf("This program comes with ABSOLUTELY NO WARRANTY; for details "
-			"type `show w'.\n"
-			"This is free software, and you are welcome to redistribute it\n"
-			"under certain conditions; type `show c' for details.\n\n");
-}
-
-
-/* Routine to print portion of GPL license to stdout.
- */
-void print_license( int license_part ) {
-	int start, end, line;
-	FILE * fp;
-	char buffer[0x100];
-
-	switch(license_part) {
-	case LICENSE_WARRANTEE:
-		start = LICENSE_WARRANTEE_START;
-		end = LICENSE_WARRANTEE_END;
-		break;
-	case LICENSE_CONDITIONS:
-		start = LICENSE_CONDITIONS_START;
-		end = LICENSE_CONDITIONS_END;
-		break;
-	default:
-		return;
-	}
-
-	fp = fopen(LICENSE_FILE, "r");
-	if (fp == NULL) {
-		perror("print_license: fopen");
-		exit(EXIT_FAILURE);
-	}
-	for (line = 0; line < start; line++)
-		fgets(buffer, sizeof(buffer), fp);
-	for ( ; line < end; line++) {
-		fgets(buffer, sizeof(buffer), fp);
-		printf("%s", buffer);
-	}
-	fclose(fp);
-}
-
-
-/* First message to the user.
- */
-void usage_1( void ) {
-	printf("B+ Tree of Order %d.\n", order);
-	printf("Following Silberschatz, Korth, Sidarshan, Database Concepts, 5th ed.\n\n");
-	printf("To build a B+ tree of a different order, start again and enter the order\n");
-	printf("as an integer argument:  bpt <order>  ");
-	printf("(%d <= order <= %d).\n", MIN_ORDER, MAX_ORDER);
-	printf("To start with input from a file of newline-delimited integers, \n"
-			"start again and enter ");
-	printf("the order followed by the filename:\n"
-			"bpt <order> <inputfile> .\n");
-}
-
-
-/* Second message to the user.
- */
-void usage_2( void ) {
-	printf("Enter any of the following commands after the prompt > :\n");
-	printf("\ti <k>  -- Insert <k> (an integer) as both key and value).\n");
-	printf("\tf <k>  -- Find the value under key <k>.\n");
-	printf("\tp <k> -- Print the path from the root to key k and its associated value.\n");
-	printf("\tr <k1> <k2> -- Print the keys and values found in the range "
-			"[<k1>, <k2>\n");
-	printf("\td <k>  -- Delete key <k> and its associated value.\n");
-	printf("\tx -- Destroy the whole tree.  Start again with an empty tree of the same order.\n");
-	printf("\tt -- Print the B+ tree.\n");
-	printf("\tl -- Print the keys of the leaves (bottom row of the tree).\n");
-	printf("\tv -- Toggle output of pointer addresses (\"verbose\") in tree and leaves.\n");
-	printf("\tq -- Quit. (Or use Ctl-D.)\n");
-	printf("\t? -- Print this help message.\n");
-}
-
-
-/* Brief usage note.
- */
-void usage_3( void ) {
-	printf("Usage: ./bpt [<order>]\n");
-	printf("\twhere %d <= order <= %d .\n", MIN_ORDER, MAX_ORDER);
-}
 
 
 /* Helper function for printing the
@@ -597,7 +500,7 @@ int cut( int length ) {
 /* Creates a new record to hold the value
  * to which a key refers.
  */
-record * make_record(int value) {
+record * make_record(int value, fields data) {
 	record * new_record = (record *)malloc(sizeof(record));
 	if (new_record == NULL) {
 		perror("Record creation.");
@@ -606,7 +509,11 @@ record * make_record(int value) {
 	else {
 		//here you have to copy and add all fields in the record
 		new_record->value = value;
-		//new_record->data->
+		new_record->data->sector  = data->sector;
+		new_record->data->key  = data->key;
+		new_record->data->key_pos  = data->key_pos;
+		new_record->data->values = data->values;
+		free(data);
 	}
 	return new_record;
 }
@@ -654,7 +561,6 @@ node * make_leaf( void ) {
  * the node to the left of the key to be inserted.
  */
 int get_left_index(node * parent, node * left) {
-
 	int left_index = 0;
 	while (left_index <= parent->num_keys && 
 			parent->pointers[left_index] != left)
@@ -1340,10 +1246,8 @@ node * delete_entry( node * root, node * n, int key, void * pointer ) {
 /* Master deletion function.
  */
 node * delete_key(node * root, int key) {
-
 	node * key_leaf;
 	record * key_record;
-
 	key_record = find(root, key, false);
 	key_leaf = find_leaf(root, key, false);
 	if (key_record != NULL && key_leaf != NULL) {
@@ -1353,7 +1257,7 @@ node * delete_key(node * root, int key) {
 	return root;
 }
 
-
+//I don't need it
 void destroy_tree_nodes(node * root) {
 	int i;
 	if (root->is_leaf)
@@ -1367,7 +1271,7 @@ void destroy_tree_nodes(node * root) {
 	free(root);
 }
 
-
+//I don't need it
 node * destroy_tree(node * root) {
 	destroy_tree_nodes(root);
 	return NULL;
