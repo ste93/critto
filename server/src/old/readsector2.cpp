@@ -4,8 +4,10 @@
 #include <cstring>
 #include <vector>
 #include <iostream>
+#include <stdint.h>
 
-int readsector(char *diskName, uint32_t sector) {
+
+int readSector(char *diskName, uint32_t sector) {
 	// Which disk?
 	std::string diskError = std::string() + diskName + ": ";
 
@@ -27,19 +29,19 @@ int readsector(char *diskName, uint32_t sector) {
 		throw(std::runtime_error(diskError + std::strerror(errno)));
 }
 
-
-int writesector(char *diskName, uint32_t sector) {
+/*
+int writeSector(std::string diskName, uint32_t sector, std::string toWrite) {
 	// Which disk?
 	std::string diskError = std::string() + diskName + ": ";
 
 	// Open device file
-	std::ifstream disk(diskName, std::ios_base::binary);
+	std::ofstream disk(diskName);
 
 	if(!disk)
 		throw(std::runtime_error(diskError + std::strerror(errno)));
 
 	// Seek to 54321'th sector
-	disk.seekg(512 * sector);
+	//disk.seekg(512 * sector);
 	if(!disk)
 		throw(std::runtime_error(diskError + std::strerror(errno)));
 
@@ -49,7 +51,9 @@ int writesector(char *diskName, uint32_t sector) {
 	if(!disk)
 		throw(std::runtime_error(diskError + std::strerror(errno)));
 }
-
+*/
 int main() {
-	readsector
+	//writeSector("/dev/sdb", 0, "try to write on disk");
+	readSector("/dev/testlo", 1);
+	return 0;
 }

@@ -245,7 +245,6 @@ node * dequeue( void ) {
 	node * n = queue;
 	queue = queue->next;
 	n->next = NULL;
-	//here I can update the database on the server by sending the nodes (all nodes)
 	return n;
 }
 
@@ -301,6 +300,7 @@ int height( node * root ) {
 /* Utility function to give the length in edges
  * of the path from any node to the root.
  */
+ //here I suppose to have all the nodes between this and root on the cache
 int path_to_root( node * root, node * child ) {
 	int length = 0;
 	node * c = child;
@@ -322,8 +322,6 @@ int path_to_root( node * root, node * child ) {
  * keys, in hexadecimal notation.
  */
 void print_tree( node * root ) {
-
-
 	//this function can be useful for updating the tree
 	node * n = NULL;
 	int i = 0;
@@ -1243,8 +1241,7 @@ node * delete_entry( node * root, node * n, int key, void * pointer ) {
 
 
 
-/* Master deletion function.
- */
+/* Master deletion function. */
 node * delete_key(node * root, int key) {
 	node * key_leaf;
 	record * key_record;
