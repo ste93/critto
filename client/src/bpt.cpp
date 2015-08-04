@@ -51,6 +51,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "btreelic.h"
+#include "list.cpp"
 #ifdef WINDOWS
 #define bool char
 #define false 0
