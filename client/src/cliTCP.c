@@ -18,6 +18,10 @@
 
 #define SOCKET_ERROR   ((int)-1)
 #define SIZEBUF 1000000
+#define IP_ADDR_SERV "127.0.0.1"
+//this should be set as 512
+#define MAXSIZE 1000000
+
 
 
 void usage(void) 
@@ -27,9 +31,8 @@ void usage(void)
 
 int main(int argc, char *argv[])
 {
-  #define MAXSIZE 1000000 
   struct sockaddr_in Local, Serv;
-  char string_remote_ip_address[100] = 127.0.0.1;
+  char string_remote_ip_address[100] = IP_ADDR_SERV;
   short int remote_port_number = 5000, local_port_number;
   int socketfd, OptVal, msglen, Fromlen, ris;
   int n, i, nread, nwrite, len;

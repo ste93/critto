@@ -69,12 +69,15 @@
 
 
 // TYPES.
+
+
+
 /* type of data in the database */
 typedef struct fields {
     int sector;
     int key;
     int key_pos;
-	void **values; 
+	element *values; 
 } fields;
 
 
@@ -130,6 +133,7 @@ typedef struct node {
 	bool is_leaf;
 	int num_keys;
 	struct node * next; // Used for queue.
+	struct node * next_equal;
 	uint64_t sectorNext;	
 } node;
 
@@ -300,7 +304,6 @@ int height( node * root ) {
 /* Utility function to give the length in edges
  * of the path from any node to the root.
  */
- //here I suppose to have all the nodes between this and root on the cache
 int path_to_root( node * root, node * child ) {
 	int length = 0;
 	node * c = child;
@@ -455,6 +458,7 @@ node * find_leaf( node * root, int key, bool verbose ) {
 		}
 		if (verbose)
 			printf("%d ->\n", i);
+		//here I retrieve the node if the node doesn't exists
 		c = (node *)c->pointers[i];
 	}
 	if (verbose) {
@@ -845,7 +849,7 @@ node * start_new_tree(int key, record * pointer) {
  * however necessary to maintain the B+ tree
  * properties.
  */
-node * insert( node * root, int key, int value ) {
+node * insert( node * root, int key, list value ) {
 // I have to add the duplicates
 	record * pointer;
 	node * leaf;
@@ -855,7 +859,7 @@ node * insert( node * root, int key, int value ) {
 	 */
 
 	if (find(root, key, false) != NULL)
-		return root;
+		//here I have to add the records in the queue of the ones with the same key
 
 	/* Create a new record for the
 	 * value.
@@ -1254,7 +1258,7 @@ node * delete_key(node * root, int key) {
 	return root;
 }
 
-//I don't need it
+//this is when all is done and the client quits
 void destroy_tree_nodes(node * root) {
 	int i;
 	if (root->is_leaf)
@@ -1268,7 +1272,7 @@ void destroy_tree_nodes(node * root) {
 	free(root);
 }
 
-//I don't need it
+//when the client quits I destroy all the tree
 node * destroy_tree(node * root) {
 	destroy_tree_nodes(root);
 	return NULL;
@@ -1288,7 +1292,7 @@ int main( int argc, char ** argv ) {
 
 	root = NULL;
 	verbose_output = false;
-
+/*
 	if (argc > 1) {
 		order = atoi(argv[1]);
 		if (order < MIN_ORDER || order > MAX_ORDER) {
@@ -1301,7 +1305,7 @@ int main( int argc, char ** argv ) {
 	license_notice();
 	usage_1();  
 	usage_2();
-
+*/
 	if (argc > 2) {
 		input_file = argv[2];
 		fp = fopen(input_file, "r");
@@ -1311,6 +1315,7 @@ int main( int argc, char ** argv ) {
 		}
 		while (!feof(fp)) {
 			fscanf(fp, "%d\n", &input);
+			
 			root = insert(root, input, input);
 		}
 		fclose(fp);
