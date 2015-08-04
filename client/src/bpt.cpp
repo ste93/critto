@@ -52,6 +52,7 @@
 #include <stdbool.h>
 #include "btreelic.h"
 #include "list.cpp"
+#include <map>
 #ifdef WINDOWS
 #define bool char
 #define false 0
@@ -135,7 +136,7 @@ typedef struct node {
 	int num_keys;
 	struct node * next; // Used for queue.
 	struct node * next_equal;
-	uint64_t sectorNext;	
+	uint64_t sectorNext;
 } node;
 
 
@@ -167,6 +168,9 @@ node * queue = NULL;
  */
 bool verbose_output = false;
 
+//this map contains all the records of the tree that are retrieved from the server and stored in the RAM of the client
+std::map<int, int*> nodes_in_memory;
+
 
 // FUNCTION PROTOTYPES.
 
@@ -177,12 +181,12 @@ void enqueue( node * new_node );
 node * dequeue( void );
 int height( node * root );
 int path_to_root( node * root, node * child );
-void print_leaves( node * root );
-void print_tree( node * root );
-void find_and_print(node * root, int key, bool verbose); 
-void find_and_print_range(node * root, int range1, int range2, bool verbose); 
+void print_leaves( node * root );//I don't think i need this one
+void print_tree( node * root );//I don't think i need this one
+void find_and_print(node * root, int key, bool verbose); //I need this
+void find_and_print_range(node * root, int range1, int range2, bool verbose);//I need this 
 int find_range( node * root, int key_start, int key_end, bool verbose,
-		int returned_keys[], void * returned_pointers[]); 
+		int returned_keys[], void * returned_pointers[]); //I need this
 node * find_leaf( node * root, int key, bool verbose );
 record * find( node * root, int key, bool verbose );
 int cut( int length );
@@ -859,8 +863,9 @@ node * insert( node * root, int key, list value ) {
 	 * duplicates.
 	 */
 
-	if (find(root, key, false) != NULL)
+	if (find(root, key, false) != NULL) {
 		//here I have to add the records in the queue of the ones with the same key
+	}
 
 	/* Create a new record for the
 	 * value.
@@ -1307,6 +1312,7 @@ int main( int argc, char ** argv ) {
 	usage_1();  
 	usage_2();
 */
+	//this is for create a database from a file
 	if (argc > 2) {
 		input_file = argv[2];
 		fp = fopen(input_file, "r");
