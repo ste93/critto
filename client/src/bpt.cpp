@@ -71,18 +71,24 @@
 
 
 // TYPES.
-
+typedef uint32_t sect_type;
 
 
 /* type of data in the database */
 typedef struct fields {
-    int sector;
+    sect_type sector;
     int key;
     int key_pos;
 	element *values; 
 } fields;
 
+sect_type last_sector_used;
 
+typedef struct info {
+	sect_type root_sect;
+	sect_type last_sect_used;
+} info;
+	
 /* Type representing the record
  * to which a given key refers.
  * In a real B+ tree system, the
@@ -96,6 +102,8 @@ typedef struct fields {
 typedef struct record {
 	int value;
 	fields data; 
+	sect_type sector;
+	record * next;
 } record;
 
 /* Type representing a node in the B+ tree.
@@ -129,14 +137,14 @@ typedef struct record {
 typedef struct node {
 	void ** pointers;
 	int * keys;
-	uint64_t sectorNode;
-	uint64_t sectorParent;
+	sect_type sectorNode;
+	sect_type sectorParent;
 	struct node * parent;
 	bool is_leaf;
 	int num_keys;
 	struct node * next; // Used for queue.
 	struct node * next_equal;
-	uint64_t sectorNext;
+	sect_type sectorNext;
 } node;
 
 
@@ -169,7 +177,10 @@ node * queue = NULL;
 bool verbose_output = false;
 
 //this map contains all the records of the tree that are retrieved from the server and stored in the RAM of the client
-std::map<int, int*> nodes_in_memory;
+std::map<uint32_t, void*> nodes_in_memory;
+
+//thiis map contains the sectors retrieved (useful for the change of sector)
+std::map<int, uint32_t> sectors_retrieved;
 
 
 // FUNCTION PROTOTYPES.
@@ -445,33 +456,34 @@ node * find_leaf( node * root, int key, bool verbose ) {
 	int i = 0;
 	node * c = root;
 	if (c == NULL) {
-		if (verbose) 
+	/*	if (verbose) 
 			printf("Empty tree.\n");
-		return c;
+		return c;*/
 	}
 	while (!c->is_leaf) {
-		if (verbose) {
+	/*	if (verbose) {
 			printf("[");
 			for (i = 0; i < c->num_keys - 1; i++)
 				printf("%d ", c->keys[i]);
 			printf("%d] ", c->keys[i]);
-		}
+		}*/
 		i = 0;
 		while (i < c->num_keys) {
 			if (key >= c->keys[i]) i++;
 			else break;
 		}
-		if (verbose)
-			printf("%d ->\n", i);
+	/*	if (verbose)
+			printf("%d ->\n", i);*/
 		//here I retrieve the node if the node doesn't exists
-		c = (node *)c->pointers[i];
+		c = retrieveData(...)
+		//c = (node *)c->pointers[i];
 	}
-	if (verbose) {
+	/*if (verbose) {
 		printf("Leaf [");
 		for (i = 0; i < c->num_keys - 1; i++)
 			printf("%d ", c->keys[i]);
 		printf("%d] ->\n", c->keys[i]);
-	}
+	}*/
 	return c;
 }
 
@@ -488,7 +500,8 @@ record * find( node * root, int key, bool verbose ) {
 	if (i == c->num_keys) 
 		return NULL;
 	else
-		return (record *)c->pointers[i];
+		return retrieveData(...)
+	//	return (record *)c->pointers[i];
 }
 
 /* Finds the appropriate place to
@@ -589,7 +602,9 @@ node * insert_into_leaf( node * leaf, int key, record * pointer ) {
 
 	for (i = leaf->num_keys; i > insertion_point; i--) {
 		leaf->keys[i] = leaf->keys[i - 1];
-		leaf->pointers[i] = leaf->pointers[i - 1];
+		retrieveData(...)//pointers[i-1]
+
+		//leaf->pointers[i] = leaf->pointers[i - 1];
 	}
 	leaf->keys[insertion_point] = key;
 	leaf->pointers[insertion_point] = pointer;
@@ -855,51 +870,51 @@ node * start_new_tree(int key, record * pointer) {
  * properties.
  */
 node * insert( node * root, int key, list value ) {
-// I have to add the duplicates
+
 	record * pointer;
 	node * leaf;
-
-	/* The current implementation ignores
-	 * duplicates.
-	 */
-
-	if (find(root, key, false) != NULL) {
-		//here I have to add the records in the queue of the ones with the same key
+	
+	if ((pointer = find(root, key, false)) != NULL) {
+		//here I add the duplicates
+		while (pointer->next != NULL || pointer->next_sector != 0){
+			if(pointer->next_sector != 0) {
+				while(pointer->next = retrieveData(socketfd, pointer->next_sector) == NULL){
+					;
+				}
+			}
+			pointer = pointer->next;
+		}
+		pointer->next = make_record(value)
+		//I have to manage the occupied sectors (can be an idea add the last sector used and the size of the disk)
 	}
-
-	/* Create a new record for the
-	 * value.
-	 */
-	pointer = make_record(value);
+	else {
+		/* Create a new record for the value. */
+		pointer = make_record(value);
 
 
-	/* Case: the tree does not exist yet.
-	 * Start a new tree.
-	 */
+		/* Case: the tree does not exist yet. Start a new tree. */
 
-	if (root == NULL) 
-		return start_new_tree(key, pointer);
+		if (root == NULL) 
+			return start_new_tree(key, pointer);
 
 
-	/* Case: the tree already exists.
-	 * (Rest of function body.)
-	 */
+		/* Case: the tree already exists. (Rest of function body.) */
 
-	leaf = find_leaf(root, key, false);
+		leaf = find_leaf(root, key, false);
+		//since here almost ok
+		/* Case: leaf has room for key and pointer. */
 
-	/* Case: leaf has room for key and pointer.
-	 */
+		if (leaf->num_keys < order - 1) {
+			leaf = insert_into_leaf(leaf, key, pointer);
+			return root;
+		}
 
-	if (leaf->num_keys < order - 1) {
-		leaf = insert_into_leaf(leaf, key, pointer);
-		return root;
+
+		/* Case:  leaf must be split.
+		 */
+
+		return insert_into_leaf_after_splitting(root, leaf, key, pointer);
 	}
-
-
-	/* Case:  leaf must be split.
-	 */
-
-	return insert_into_leaf_after_splitting(root, leaf, key, pointer);
 }
 
 

@@ -40,50 +40,50 @@ int readn(int sock, char *buf, int len) {
 	return nread;
 }
 
-int retrieveData(int sock, uint32_t sector, char **ris) {
+void * retrieveData(int sock, uint32_t sector) {
 	uint32_t l, l_comm, ack, sect;
 	int len, ack_int;
+	char * ris;
 	l = htonl(sizeof(uint32_t));
 	l_comm = htonl(2);
 	sect =  htonl(sector);
-	//here I send if I want to read or write
-	if (writen(sock, (char*)"re", 2)<=0) {
+	//here I send that I want to read
+	if (writen(sock, (char*)"re", 3)<=0) {
 		perror("command");
-		return -1;
+		return NULL;
 	}
 	//I have to send the number of the sector of the data to be retrieved
 	if (writen(sock, (char*)sect, 4)<=0) {
 		perror("number of the sector");
-		return -1;
+		return NULL;
 	}
 	//here I receive the length of te record
 	if (readn(sock, (char*)&l, 4)<=0) {
 		perror("receiving length");
-		return -1;
+		return NULL;
 	}
 	len = ntohl(l);
-	*ris = (char*)malloc(len+1);
+	ris = (char*)malloc(len+1);
 	/* here I receive the answer */
-	if (readn(sock, *ris, len)<=0) {
+	if (readn(sock, ris, len)<=0) {
 		perror("record not retrieved");
-		free(*ris);
-		ris = NULL;
-		return -1;
+		free(ris);
+		return NULL;
 	}
-	//this is the acknowledgment for the server
+/*	//this is the acknowledgment for the server
 	if (writen(sock, (char*)sect, 4)<=0) {
 		perror("ack client send");
-		return -1;
+		return NULL;
 	}
 	//this is the acknowledgment of the server
 	if (readn(sock, (char*)&ack, 4)<=0) {
 		perror("receiving length");
-		return -1;
-	}
+		return NULL;
+	}*/
 	if (ntohl(ack) != sector){
-		return -1;
+		return NULL;
 	}
-	return 1;
+	return (void*) ris;
 }
 
 int serverConnectionFinish(int socket_fd) {
