@@ -7,9 +7,13 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <iostream>
+#include "../../server/src/constant.h"
 
 #define SOCKET_ERROR   ((int)-1)
 #define INPSIZE 100
+
+typedef uint32_t sect_type;
 
 //write len bytes on the given socket
 int writen(int sock, char *buf, int len) {
@@ -40,7 +44,34 @@ int readn(int sock, char *buf, int len) {
 	return nread;
 }
 
-void * retrieveData(int sock, uint32_t sector) {
+int sendData(int sock, void * data, sect_type sect){
+	uint32_t l, s, ack, ack_net;
+	if (writen(sock, (char*)"wr", 3)<=0) {
+		perror("command");
+		return -1;
+	}
+	s = htonl(sect);
+	if (writen(sock, (char*)&s, 4)<=0) {
+		perror("number of the sector");
+		return -1;
+	}
+	if (writen(sock, (char*)data, SECTOR_SIZE)<=0) {
+		perror("data of the sector");
+		return -1;
+	}
+	if (readn(sock,(char*)&ack_net, 4) <=0){
+		perror("ack");
+		return -1;
+	}
+	ack = ntohl(ack_net);
+	if (ack != sect) {
+		perror ("write failed");
+		return -1;
+	}
+	return 0;
+}
+
+void * retrieveData(int sock, sect_type sector) {
 	uint32_t l, l_comm, ack, sect;
 	int len, ack_int;
 	char * ris;
@@ -53,19 +84,20 @@ void * retrieveData(int sock, uint32_t sector) {
 		return NULL;
 	}
 	//I have to send the number of the sector of the data to be retrieved
-	if (writen(sock, (char*)sect, 4)<=0) {
+	if (writen(sock, (char*)&sect, 4)<=0) {
 		perror("number of the sector");
 		return NULL;
 	}
 	//here I receive the length of te record
-	if (readn(sock, (char*)&l, 4)<=0) {
+/*	if (readn(sock, (char*)&l, 4)<=0) {
 		perror("receiving length");
 		return NULL;
 	}
-	len = ntohl(l);
-	ris = (char*)malloc(len+1);
+	len = ntohl(l);*/
+	//I suppose that all the records are 512 byte
+	ris = (char*)malloc(SECTOR_SIZE);
 	/* here I receive the answer */
-	if (readn(sock, ris, len)<=0) {
+	if (readn(sock, ris, SECTOR_SIZE)<=0) {
 		perror("record not retrieved");
 		free(ris);
 		return NULL;
@@ -79,20 +111,24 @@ void * retrieveData(int sock, uint32_t sector) {
 	if (readn(sock, (char*)&ack, 4)<=0) {
 		perror("receiving length");
 		return NULL;
-	}*/
+	}
 	if (ntohl(ack) != sector){
 		return NULL;
-	}
+	}*/
 	return (void*) ris;
 }
 
-int serverConnectionFinish(int socket_fd) {
-	if (writen(sock, (char*)"xx", 2)<=0) {
+int serverConnectionFinish(int socketfd) {
+	char ack[2];
+	if (writen(socketfd, (char*)"xx", 3)<=0) {
 		perror("command");
 		return -1;
 	}
-	if (readn(sock, (char*)&ack, 4)<=0) {
-		perror("receiving length");
+	if (readn(socketfd, (char*)&ack, 3)<=0) {
+		perror("receiving ack");
+		return -1;
+	}
+	if (strcmp(ack, "xx")!= 0) {
 		return -1;
 	}
 	close(socketfd);
@@ -100,13 +136,13 @@ int serverConnectionFinish(int socket_fd) {
 }
 
 //here I need the socket file descriptor only
-int serverConnectionInit(char *ip_addr, char *port, int *socket_main) {
+int serverConnectionInit(char *ip_addr,char *port, int *socket_main) {
 	struct sockaddr_in Local, Serv;
 	char *string_remote_ip_address;
 	short int remote_port_number;
 	int ris, socketfd;
 	char inp[INPSIZE];
-	string_remote_ip_address = ip_addr;
+	string_remote_ip_address = (char *)ip_addr;
 	remote_port_number = atoi(port);
 
 	/* get a datagram socket */
@@ -134,7 +170,6 @@ int serverConnectionInit(char *ip_addr, char *port, int *socket_main) {
 	Serv.sin_port		 =	htons(remote_port_number);
 
 	/* connection request */
-	printf ("connect()\n");
 	ris = connect(socketfd, (struct sockaddr*) &Serv, sizeof(Serv));
 	if (ris == SOCKET_ERROR)  {
 		printf ("connect() failed, Err: %d \"%s\"\n",errno,strerror(errno));
@@ -145,10 +180,20 @@ int serverConnectionInit(char *ip_addr, char *port, int *socket_main) {
 	return 0;
 }
 
-int main() {
+int main(int argc, char * argv[]) {
+	int sock, l, ri;
+	char * read_res;
+	char sent[512] = "llslsllslllslllslllsllslslls";
+	serverConnectionInit("127.0.0.1", "3333", &sock);
+	ri = sendData(sock, sent, 44);
+	printf("%d\n",ri );
+	read_res = (char *)retrieveData(sock, 44);
+	printf("%s\n", read_res);
+	l = serverConnectionFinish(sock);
+	std::cout << l << "\n";
 	return 0;
 }
-/*	
+	/*
 	while (1) {
 		int i=0;
 		printf("inserisci comando: ");

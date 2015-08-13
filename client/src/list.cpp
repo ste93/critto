@@ -71,7 +71,7 @@ void print_list(element * root){
 	cout << "\n";
 }
 
-
+/*
 int main() {
 	element * root = NULL;
 	int x;
@@ -87,3 +87,4 @@ int main() {
 	}
 }
 		
+*/

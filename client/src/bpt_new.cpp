@@ -50,8 +50,8 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
-//#include "btreelic.h"
 #include "list.cpp"
+#include "cli.cpp"
 #include <map>
 #ifdef WINDOWS
 #define bool char
@@ -68,14 +68,19 @@
 #define MIN_ORDER 3
 #define MAX_ORDER 20
 
+// Constants for printing part or all of the GPL license.
+#define LICENSE_FILE "LICENSE.txt"
+#define LICENSE_WARRANTEE 0
+#define LICENSE_WARRANTEE_START 592
+#define LICENSE_WARRANTEE_END 624
+#define LICENSE_CONDITIONS 1
+#define LICENSE_CONDITIONS_START 70
+#define LICENSE_CONDITIONS_END 625
 
-int socketfd;
 
-// TYPES.
 typedef uint32_t sect_type;
 
 
-/* type of data in the database */
 typedef struct fields {
     sect_type sector;
     int key;
@@ -89,7 +94,12 @@ typedef struct info {
 	sect_type root_sect;
 	sect_type last_sect_used;
 } info;
-	
+
+
+// TYPES.
+/* type of data in the database */
+
+
 /* Type representing the record
  * to which a given key refers.
  * In a real B+ tree system, the
@@ -100,19 +110,19 @@ typedef struct info {
  * to change the type and content
  * of the value field.
  */
+ 
+int socketfd;
+
+
+
 typedef struct record {
 	int value;
-	fields data; 
+	fields data;
 	sect_type sector;
 	record * next;
 	sect_type next_sector;
 } record;
 
-
-typedef struct node_info {
-	sect_type sector;
-	int value;
-}
 /* Type representing a node in the B+ tree.
  * This type is general enough to serve for both
  * the leaf and the internal node.
@@ -141,6 +151,12 @@ typedef struct node_info {
  * to data is always num_keys.  The
  * last leaf pointer points to the next leaf.
  */
+ 
+ typedef struct node_info {
+	sect_type sector;
+	int value;
+}
+
 typedef struct node {
 	void ** pointers;
 	int * keys;
@@ -150,10 +166,15 @@ typedef struct node {
 	bool is_leaf;
 	int num_keys;
 	struct node * next; // Used for queue.
+	sect_type next_sector;
 	struct node * next_equal;
-	sect_type sectorNext;
 } node;
 
+
+
+std::map<uint32_t, void*> nodes_in_memory;
+
+std::map<int, uint32_t> sectors_retrieved;
 
 // GLOBALS.
 
@@ -183,28 +204,26 @@ node * queue = NULL;
  */
 bool verbose_output = false;
 
-//this map contains all the records of the tree that are retrieved from the server and stored in the RAM of the client
-std::map<uint32_t, void*> nodes_in_memory;
-
-//thiis map contains the sectors retrieved (useful for the change of sector)
-std::map<int, uint32_t> sectors_retrieved;
-
 
 // FUNCTION PROTOTYPES.
 
 // Output and utility.
 
-
+void license_notice( void );
+void print_license( int licence_part );
+void usage_1( void );
+void usage_2( void );
+void usage_3( void );
 void enqueue( node * new_node );
 node * dequeue( void );
 int height( node * root );
 int path_to_root( node * root, node * child );
-void print_leaves( node * root );//I don't think i need this one
-void print_tree( node * root );//I don't think i need this one
-void find_and_print(node * root, int key, bool verbose); //I need this
-void find_and_print_range(node * root, int range1, int range2, bool verbose);//I need this 
+void print_leaves( node * root );
+void print_tree( node * root );
+void find_and_print(node * root, int key, bool verbose); 
+void find_and_print_range(node * root, int range1, int range2, bool verbose); 
 int find_range( node * root, int key_start, int key_end, bool verbose,
-		int returned_keys[], void * returned_pointers[]); //I need this
+		int returned_keys[], void * returned_pointers[]); 
 node * find_leaf( node * root, int key, bool verbose );
 record * find( node * root, int key, bool verbose );
 int cut( int length );
@@ -234,7 +253,7 @@ node * coalesce_nodes(node * root, node * n, node * neighbor, int neighbor_index
 node * redistribute_nodes(node * root, node * n, node * neighbor, int neighbor_index, 
 		int k_prime_index, int k_prime);
 node * delete_entry( node * root, node * n, int key, void * pointer );
-node * delete_key( node * root, int key );
+node * delete_node( node * root, int key );
 
 
 
@@ -243,6 +262,93 @@ node * delete_key( node * root, int key );
 
 // OUTPUT AND UTILITIES
 
+/* Copyright and license notice to user at startup. 
+ */
+void license_notice( void ) {
+	printf("bpt version %s -- Copyright (C) 2010  Amittai Aviram "
+			"http://www.amittai.com\n", Version);
+	printf("This program comes with ABSOLUTELY NO WARRANTY; for details "
+			"type `show w'.\n"
+			"This is free software, and you are welcome to redistribute it\n"
+			"under certain conditions; type `show c' for details.\n\n");
+}
+
+
+/* Routine to print portion of GPL license to stdout.
+ */
+void print_license( int license_part ) {
+	int start, end, line;
+	FILE * fp;
+	char buffer[0x100];
+
+	switch(license_part) {
+	case LICENSE_WARRANTEE:
+		start = LICENSE_WARRANTEE_START;
+		end = LICENSE_WARRANTEE_END;
+		break;
+	case LICENSE_CONDITIONS:
+		start = LICENSE_CONDITIONS_START;
+		end = LICENSE_CONDITIONS_END;
+		break;
+	default:
+		return;
+	}
+
+	fp = fopen(LICENSE_FILE, "r");
+	if (fp == NULL) {
+		perror("print_license: fopen");
+		exit(EXIT_FAILURE);
+	}
+	for (line = 0; line < start; line++)
+		fgets(buffer, sizeof(buffer), fp);
+	for ( ; line < end; line++) {
+		fgets(buffer, sizeof(buffer), fp);
+		printf("%s", buffer);
+	}
+	fclose(fp);
+}
+
+
+/* First message to the user.
+ */
+void usage_1( void ) {
+	printf("B+ Tree of Order %d.\n", order);
+	printf("Following Silberschatz, Korth, Sidarshan, Database Concepts, 5th ed.\n\n");
+	printf("To build a B+ tree of a different order, start again and enter the order\n");
+	printf("as an integer argument:  bpt <order>  ");
+	printf("(%d <= order <= %d).\n", MIN_ORDER, MAX_ORDER);
+	printf("To start with input from a file of newline-delimited integers, \n"
+			"start again and enter ");
+	printf("the order followed by the filename:\n"
+			"bpt <order> <inputfile> .\n");
+}
+
+
+/* Second message to the user.
+ */
+void usage_2( void ) {
+	printf("Enter any of the following commands after the prompt > :\n");
+	printf("\ti <k>  -- Insert <k> (an integer) as both key and value).\n");
+	printf("\tf <k>  -- Find the value under key <k>.\n");
+	printf("\tp <k> -- Print the path from the root to key k and its associated value.\n");
+	printf("\tr <k1> <k2> -- Print the keys and values found in the range "
+			"[<k1>, <k2>\n");
+	printf("\td <k>  -- Delete key <k> and its associated value.\n");
+	printf("\tx -- Destroy the whole tree.  Start again with an empty tree of the same order.\n");
+	printf("\tt -- Print the B+ tree.\n");
+	printf("\tl -- Print the keys of the leaves (bottom row of the tree).\n");
+	printf("\tv -- Toggle output of pointer addresses (\"verbose\") in tree and leaves.\n");
+	printf("\tq -- Quit. (Or use Ctl-D.)\n");
+	printf("\t? -- Print this help message.\n");
+}
+
+
+/* Brief usage note.
+ */
+void usage_3( void ) {
+	printf("Usage: ./bpt [<order>]\n");
+	printf("\twhere %d <= order <= %d .\n", MIN_ORDER, MAX_ORDER);
+}
 
 
 /* Helper function for printing the
@@ -256,8 +362,13 @@ void enqueue( node * new_node ) {
 	}
 	else {
 		c = queue;
-		while(c->next != NULL) {
-			c = c->next; 
+		while(c->next != NULL || c->next_sector == 0) {
+			if(c->next_sector != 0) {
+				while(c->next = retrieveData(socketfd, c->next_sector) == NULL){
+					;
+				}
+			}
+			c = c->next;
 		}
 		c->next = new_node;
 		new_node->next = NULL;
@@ -272,6 +383,8 @@ node * dequeue( void ) {
 	node * n = queue;
 	queue = queue->next;
 	n->next = NULL;
+	//here I can update the database on the server by sending the nodes (all nodes)
+	//here I have all the nodes stored in main memory
 	return n;
 }
 
@@ -289,7 +402,7 @@ void print_leaves( node * root ) {
 		return;
 	}
 	while (!c->is_leaf)
-		c = (node *)c->pointers[0];
+		c = retrieveData(c->pointers[0]);
 	while (true) {
 		for (i = 0; i < c->num_keys; i++) {
 			if (verbose_output)
@@ -300,7 +413,7 @@ void print_leaves( node * root ) {
 			printf("%lx ", (unsigned long)c->pointers[order - 1]);
 		if (c->pointers[order - 1] != NULL) {
 			printf(" | ");
-			c = (node *)c->pointers[order - 1];
+			c = c->pointers[order - 1];
 		}
 		else
 			break;
@@ -317,7 +430,7 @@ int height( node * root ) {
 	int h = 0;
 	node * c = root;
 	while (!c->is_leaf) {
-		c = (node *)c->pointers[0];
+		c = c->pointers[0];
 		h++;
 	}
 	return h;
@@ -348,6 +461,8 @@ int path_to_root( node * root, node * child ) {
  * keys, in hexadecimal notation.
  */
 void print_tree( node * root ) {
+
+
 	//this function can be useful for updating the tree
 	node * n = NULL;
 	int i = 0;
@@ -378,7 +493,7 @@ void print_tree( node * root ) {
 		}
 		if (!n->is_leaf)
 			for (i = 0; i <= n->num_keys; i++)
-				enqueue((node *)n->pointers[i]);
+				enqueue(n->pointers[i]);
 		if (verbose_output) {
 			if (n->is_leaf) 
 				printf("%lx ", (unsigned long)n->pointers[order - 1]);
@@ -447,7 +562,7 @@ int find_range( node * root, int key_start, int key_end, bool verbose,
 			returned_pointers[num_found] = n->pointers[i];
 			num_found++;
 		}
-		n = (node *)n->pointers[order - 1];
+		n = n->pointers[order - 1];
 		i = 0;
 	}
 	return num_found;
@@ -463,34 +578,32 @@ node * find_leaf( node * root, int key, bool verbose ) {
 	int i = 0;
 	node * c = root;
 	if (c == NULL) {
-	/*	if (verbose) 
+		if (verbose) 
 			printf("Empty tree.\n");
-		return c;*/
+		return c;
 	}
 	while (!c->is_leaf) {
-	/*	if (verbose) {
+		if (verbose) {
 			printf("[");
 			for (i = 0; i < c->num_keys - 1; i++)
 				printf("%d ", c->keys[i]);
 			printf("%d] ", c->keys[i]);
-		}*/
+		}
 		i = 0;
 		while (i < c->num_keys) {
 			if (key >= c->keys[i]) i++;
 			else break;
 		}
-	/*	if (verbose)
-			printf("%d ->\n", i);*/
-		//here I retrieve the node if the node doesn't exists
-		c = retrieveData(...)
-		//c = (node *)c->pointers[i];
+		if (verbose)
+			printf("%d ->\n", i);
+		c = (node *)c->pointers[i];
 	}
-	/*if (verbose) {
+	if (verbose) {
 		printf("Leaf [");
 		for (i = 0; i < c->num_keys - 1; i++)
 			printf("%d ", c->keys[i]);
 		printf("%d] ->\n", c->keys[i]);
-	}*/
+	}
 	return c;
 }
 
@@ -507,8 +620,7 @@ record * find( node * root, int key, bool verbose ) {
 	if (i == c->num_keys) 
 		return NULL;
 	else
-		return retrieveData(...);
-	//	return (record *)c->pointers[i];
+		return (record *)c->pointers[i];
 }
 
 /* Finds the appropriate place to
@@ -527,7 +639,7 @@ int cut( int length ) {
 /* Creates a new record to hold the value
  * to which a key refers.
  */
-record * make_record(int value, fields data) {
+record * make_record(int value) {
 	record * new_record = (record *)malloc(sizeof(record));
 	if (new_record == NULL) {
 		perror("Record creation.");
@@ -536,11 +648,7 @@ record * make_record(int value, fields data) {
 	else {
 		//here you have to copy and add all fields in the record
 		new_record->value = value;
-		new_record->data.sector  = data.sector;
-		new_record->data.key  = data.key;
-		new_record->data.key_pos  = data.key_pos;
-		new_record->data.values = data.values;
-		delete &data;
+		//new_record->data->
 	}
 	return new_record;
 }
@@ -551,17 +659,17 @@ record * make_record(int value, fields data) {
  */
 node * make_node( void ) {
 	node * new_node;
-	new_node = (node *)malloc(sizeof(node));
+	new_node = malloc(sizeof(node));
 	if (new_node == NULL) {
 		perror("Node creation.");
 		exit(EXIT_FAILURE);
 	}
-	new_node->keys = (int *)malloc( (order - 1) * sizeof(int) );
+	new_node->keys = malloc( (order - 1) * sizeof(int) );
 	if (new_node->keys == NULL) {
 		perror("New node keys array.");
 		exit(EXIT_FAILURE);
 	}
-	new_node->pointers = (void **)malloc( order * sizeof(void *) );
+	new_node->pointers = malloc( order * sizeof(void *) );
 	if (new_node->pointers == NULL) {
 		perror("New node pointers array.");
 		exit(EXIT_FAILURE);
@@ -588,6 +696,7 @@ node * make_leaf( void ) {
  * the node to the left of the key to be inserted.
  */
 int get_left_index(node * parent, node * left) {
+
 	int left_index = 0;
 	while (left_index <= parent->num_keys && 
 			parent->pointers[left_index] != left)
@@ -609,9 +718,7 @@ node * insert_into_leaf( node * leaf, int key, record * pointer ) {
 
 	for (i = leaf->num_keys; i > insertion_point; i--) {
 		leaf->keys[i] = leaf->keys[i - 1];
-		retrieveData(...)//pointers[i-1]
-
-		//leaf->pointers[i] = leaf->pointers[i - 1];
+		leaf->pointers[i] = leaf->pointers[i - 1];
 	}
 	leaf->keys[insertion_point] = key;
 	leaf->pointers[insertion_point] = pointer;
@@ -634,13 +741,13 @@ node * insert_into_leaf_after_splitting(node * root, node * leaf, int key, recor
 
 	new_leaf = make_leaf();
 
-	temp_keys = (int *)malloc( order * sizeof(int) );
+	temp_keys = malloc( order * sizeof(int) );
 	if (temp_keys == NULL) {
 		perror("Temporary keys array.");
 		exit(EXIT_FAILURE);
 	}
 
-	temp_pointers = (void **)malloc( order * sizeof(void *) );
+	temp_pointers = malloc( order * sizeof(void *) );
 	if (temp_pointers == NULL) {
 		perror("Temporary pointers array.");
 		exit(EXIT_FAILURE);
@@ -733,12 +840,12 @@ node * insert_into_node_after_splitting(node * root, node * old_node, int left_i
 	 * the other half to the new.
 	 */
 
-	temp_pointers = (node **)malloc( (order + 1) * sizeof(node *) );
+	temp_pointers = malloc( (order + 1) * sizeof(node *) );
 	if (temp_pointers == NULL) {
 		perror("Temporary pointers array for splitting nodes.");
 		exit(EXIT_FAILURE);
 	}
-	temp_keys = (int *)malloc( order * sizeof(int) );
+	temp_keys = malloc( order * sizeof(int) );
 	if (temp_keys == NULL) {
 		perror("Temporary keys array for splitting nodes.");
 		exit(EXIT_FAILURE);
@@ -746,7 +853,7 @@ node * insert_into_node_after_splitting(node * root, node * old_node, int left_i
 
 	for (i = 0, j = 0; i < old_node->num_keys + 1; i++, j++) {
 		if (j == left_index + 1) j++;
-		temp_pointers[j] = (node *)old_node->pointers[i];
+		temp_pointers[j] = old_node->pointers[i];
 	}
 
 	for (i = 0, j = 0; i < old_node->num_keys; i++, j++) {
@@ -876,52 +983,51 @@ node * start_new_tree(int key, record * pointer) {
  * however necessary to maintain the B+ tree
  * properties.
  */
-node * insert( node * root, int key, element value ) {
+node * insert( node * root, int key, int value ) {
 
 	record * pointer;
 	node * leaf;
-	
-	if ((pointer = find(root, key, false)) != NULL) {
-		//here I add the duplicates
-		while (pointer->next != NULL || pointer->next_sector != 0){
-			if(pointer->next_sector != 0) {
-				while(pointer->next = retrieveData(socketfd, pointer->next_sector) == NULL){
-					;
-				}
-			}
-			pointer = pointer->next;
-		}
-		pointer->next = make_record(value);
-		//I have to manage the occupied sectors (can be an idea add the last sector used and the size of the disk)
+
+	/* The current implementation ignores
+	 * duplicates.
+	 */
+
+	if (find(root, key, false) != NULL)
+		return root;
+
+	/* Create a new record for the
+	 * value.
+	 */
+	pointer = make_record(value);
+
+
+	/* Case: the tree does not exist yet.
+	 * Start a new tree.
+	 */
+
+	if (root == NULL) 
+		return start_new_tree(key, pointer);
+
+
+	/* Case: the tree already exists.
+	 * (Rest of function body.)
+	 */
+
+	leaf = find_leaf(root, key, false);
+
+	/* Case: leaf has room for key and pointer.
+	 */
+
+	if (leaf->num_keys < order - 1) {
+		leaf = insert_into_leaf(leaf, key, pointer);
+		return root;
 	}
-	else {
-		/* Create a new record for the value. */
-		pointer = make_record(value);
 
 
-		/* Case: the tree does not exist yet. Start a new tree. */
+	/* Case:  leaf must be split.
+	 */
 
-		if (root == NULL) 
-			return start_new_tree(key, pointer);
-
-
-		/* Case: the tree already exists. (Rest of function body.) */
-
-		leaf = find_leaf(root, key, false);
-		//since here almost ok
-		/* Case: leaf has room for key and pointer. */
-
-		if (leaf->num_keys < order - 1) {
-			leaf = insert_into_leaf(leaf, key, pointer);
-			return root;
-		}
-
-
-		/* Case:  leaf must be split.
-		 */
-
-		return insert_into_leaf_after_splitting(root, leaf, key, pointer);
-	}
+	return insert_into_leaf_after_splitting(root, leaf, key, pointer);
 }
 
 
@@ -1013,7 +1119,7 @@ node * adjust_root(node * root) {
 	// as the new root.
 
 	if (!root->is_leaf) {
-		new_root = (node *)root->pointers[0];
+		new_root = root->pointers[0];
 		new_root->parent = NULL;
 	}
 
@@ -1214,7 +1320,7 @@ node * delete_entry( node * root, node * n, int key, void * pointer ) {
 
 	// Remove key and pointer from node.
 
-	n = (node *)remove_entry_from_node(n, key, pointer);
+	n = remove_entry_from_node(n, key, pointer);
 
 	/* Case:  deletion from the root. 
 	 */
@@ -1255,7 +1361,7 @@ node * delete_entry( node * root, node * n, int key, void * pointer ) {
 	neighbor_index = get_neighbor_index( n );
 	k_prime_index = neighbor_index == -1 ? 0 : neighbor_index;
 	k_prime = n->parent->keys[k_prime_index];
-	neighbor = neighbor_index == -1 ? (node *)n->parent->pointers[1] : 
+	neighbor = neighbor_index == -1 ? n->parent->pointers[1] : 
 		n->parent->pointers[neighbor_index];
 
 	capacity = n->is_leaf ? order : order - 1;
@@ -1273,10 +1379,13 @@ node * delete_entry( node * root, node * n, int key, void * pointer ) {
 
 
 
-/* Master deletion function. */
-node * delete_key(node * root, int key) {
+/* Master deletion function.
+ */
+node * delete_node(node * root, int key) {
+
 	node * key_leaf;
 	record * key_record;
+
 	key_record = find(root, key, false);
 	key_leaf = find_leaf(root, key, false);
 	if (key_record != NULL && key_leaf != NULL) {
@@ -1286,7 +1395,7 @@ node * delete_key(node * root, int key) {
 	return root;
 }
 
-//this is when all is done and the client quits
+
 void destroy_tree_nodes(node * root) {
 	int i;
 	if (root->is_leaf)
@@ -1294,13 +1403,13 @@ void destroy_tree_nodes(node * root) {
 			free(root->pointers[i]);
 	else
 		for (i = 0; i < root->num_keys + 1; i++)
-			destroy_tree_nodes((node *)root->pointers[i]);
+			destroy_tree_nodes(root->pointers[i]);
 	free(root->pointers);
 	free(root->keys);
 	free(root);
 }
 
-//when the client quits I destroy all the tree
+
 node * destroy_tree(node * root) {
 	destroy_tree_nodes(root);
 	return NULL;
@@ -1320,7 +1429,7 @@ int main( int argc, char ** argv ) {
 
 	root = NULL;
 	verbose_output = false;
-/*
+
 	if (argc > 1) {
 		order = atoi(argv[1]);
 		if (order < MIN_ORDER || order > MAX_ORDER) {
@@ -1333,8 +1442,7 @@ int main( int argc, char ** argv ) {
 	license_notice();
 	usage_1();  
 	usage_2();
-*/
-	//this is for create a database from a file
+
 	if (argc > 2) {
 		input_file = argv[2];
 		fp = fopen(input_file, "r");
@@ -1344,7 +1452,6 @@ int main( int argc, char ** argv ) {
 		}
 		while (!feof(fp)) {
 			fscanf(fp, "%d\n", &input);
-			
 			root = insert(root, input, input);
 		}
 		fclose(fp);
@@ -1356,7 +1463,7 @@ int main( int argc, char ** argv ) {
 		switch (instruction) {
 		case 'd':
 			scanf("%d", &input);
-			root = delete_key(root, input);
+			root = delete_node(root, input);
 			print_tree(root);
 			break;
 		case 'i':
@@ -1384,12 +1491,12 @@ int main( int argc, char ** argv ) {
 		case 'q':
 			while (getchar() != (int)'\n');
 			return EXIT_SUCCESS;
-		//case 's':
-			//if (scanf("how %c", &license_part) == 0) {
-				//usage_2();
-				//break;
-			//}
-		/*	switch(license_part) {
+		case 's':
+			if (scanf("how %c", &license_part) == 0) {
+				usage_2();
+				break;
+			}
+			switch(license_part) {
 			case 'w':
 				print_license(LICENSE_WARRANTEE);
 				break;
@@ -1400,7 +1507,7 @@ int main( int argc, char ** argv ) {
 				usage_2();
 				break;
 			}
-			break; */
+			break;
 		case 't':
 			print_tree(root);
 			break;
@@ -1413,7 +1520,7 @@ int main( int argc, char ** argv ) {
 			print_tree(root);
 			break;
 		default:
-			//usage_2();
+			usage_2();
 			break;
 		}
 		while (getchar() != (int)'\n');
