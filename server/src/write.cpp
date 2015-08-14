@@ -9,7 +9,7 @@
 #include <stdio.h>
 
 using namespace std;
-int write_sect(void * cont, int sect_num) {
+int write_sect(void * cont, int sect_num,int size) {
 
     //cout<<"Implementation of the File Handler Read Method..."<<endl;
 	int l;
@@ -27,7 +27,7 @@ int write_sect(void * cont, int sect_num) {
           close(f);
           return -1;
     }
-    if ((l = write(f, cont, SECTOR_SIZE)) <= 0) {
+    if ((l = write(f, cont, size)) <= 0) {
 		cout << "error";
 		return -1;
 	}

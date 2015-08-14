@@ -8,12 +8,9 @@
 #include <arpa/inet.h>
 #include <errno.h>
 #include <iostream>
-#include "../../server/src/constant.h"
+#include "header_cli.h"
 
-#define SOCKET_ERROR   ((int)-1)
-#define INPSIZE 100
 
-typedef uint32_t sect_type;
 
 //write len bytes on the given socket
 int writen(int sock, char *buf, int len) {
@@ -44,8 +41,8 @@ int readn(int sock, char *buf, int len) {
 	return nread;
 }
 
-int sendData(int sock, void * data, sect_type sect){
-	uint32_t l, s, ack, ack_net;
+int sendData(int sock, void * data, sect_type sect, int size){
+	uint32_t l, s, ack, ack_net, size_net;
 	if (writen(sock, (char*)"wr", 3)<=0) {
 		perror("command");
 		return -1;
@@ -55,7 +52,12 @@ int sendData(int sock, void * data, sect_type sect){
 		perror("number of the sector");
 		return -1;
 	}
-	if (writen(sock, (char*)data, SECTOR_SIZE)<=0) {
+	size_net = htonl(size);
+	if (writen(sock, (char*)&size_net, 4)<=0) {
+		perror("number of the sector");
+		return -1;
+	}
+	if (writen(sock, (char*)data, size)<=0) {
 		perror("data of the sector");
 		return -1;
 	}
@@ -170,6 +172,7 @@ int serverConnectionInit(char *ip_addr,char *port, int *socket_main) {
 	Serv.sin_port		 =	htons(remote_port_number);
 
 	/* connection request */
+	std::cout << ip_addr << " " << port << "\n";
 	ris = connect(socketfd, (struct sockaddr*) &Serv, sizeof(Serv));
 	if (ris == SOCKET_ERROR)  {
 		printf ("connect() failed, Err: %d \"%s\"\n",errno,strerror(errno));
@@ -179,7 +182,7 @@ int serverConnectionInit(char *ip_addr,char *port, int *socket_main) {
 	*socket_main = socketfd;
 	return 0;
 }
-
+/*
 int main(int argc, char * argv[]) {
 	int sock, l, ri;
 	char * read_res;
@@ -193,18 +196,4 @@ int main(int argc, char * argv[]) {
 	std::cout << l << "\n";
 	return 0;
 }
-	/*
-	while (1) {
-		int i=0;
-		printf("inserisci comando: ");
-		while ((inp[i++] = getchar()) != '\n' && i<INPSIZE-1);
-		inp[i] = '\0';
-		if (getresult(socketfd, inp, i) == -1) {
-			if (strcmp(inp, "exit\n") != 0)
-				printf("errore connessione\n");
-			else 
-				printf("bye bye\n");
-
-		}
-	}
 */

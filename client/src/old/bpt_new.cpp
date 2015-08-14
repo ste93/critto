@@ -90,10 +90,7 @@ typedef struct fields {
 
 sect_type last_sector_used;
 
-typedef struct info {
-	sect_type root_sect;
-	sect_type last_sect_used;
-} info;
+
 
 
 // TYPES.
@@ -172,9 +169,7 @@ typedef struct node {
 
 
 
-std::map<uint32_t, void*> nodes_in_memory;
 
-std::map<int, uint32_t> sectors_retrieved;
 
 // GLOBALS.
 

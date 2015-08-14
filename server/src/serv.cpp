@@ -61,7 +61,7 @@ void usage(void)
 
 void *thread_cli(void *sock) {
 	int socket = *(int *) sock, wr_succ;
-	uint32_t len, len_net, sect, sect_net;
+	uint32_t len, len_net, sect, sect_net, size, size_net;
 	char op[3];
 	void* ris;
 	while (1) {
@@ -86,11 +86,15 @@ void *thread_cli(void *sock) {
 				pthread_exit(NULL);
 			}
 			sect = ntohl(sect_net);
-			ris = malloc(SECTOR_SIZE);
-			if (readn(socket, (char*)ris, SECTOR_SIZE)<=0) {
+			if(readn(socket, (char *) &sect_net, 4)<=0){
 				pthread_exit(NULL);
 			}
-			if(write_sect(ris, sect) < 0)
+			size = ntohl(size_net);
+			ris = malloc(size);
+			if (readn(socket, (char*)ris, size)<=0) {
+				pthread_exit(NULL);
+			}
+			if(write_sect(ris, sect, size) < 0)
 				pthread_exit(NULL);
 			printf("sector_written\n");
 			if ((wr_succ = writen(socket, (char*)&sect_net, 4))<=0) {
