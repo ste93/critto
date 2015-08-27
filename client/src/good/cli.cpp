@@ -53,6 +53,8 @@ int sendData(int sock, void * data, sect_type sect, int size){
 		return -1;
 	}
 	size_net = htonl(size);
+	std::cout << size_net << "\n";
+	std::cout << size << "\n";
 	if (writen(sock, (char*)&size_net, 4)<=0) {
 		perror("number of the sector");
 		return -1;
@@ -70,6 +72,7 @@ int sendData(int sock, void * data, sect_type sect, int size){
 		perror ("write failed");
 		return -1;
 	}
+	std::cout << "ack ok\n";
 	return 0;
 }
 
@@ -172,7 +175,7 @@ int serverConnectionInit(char *ip_addr,char *port, int *socket_main) {
 	Serv.sin_port		 =	htons(remote_port_number);
 
 	/* connection request */
-	std::cout << ip_addr << " " << port << "\n";
+	//std::cout << ip_addr << " " << port << "\n";
 	ris = connect(socketfd, (struct sockaddr*) &Serv, sizeof(Serv));
 	if (ris == SOCKET_ERROR)  {
 		printf ("connect() failed, Err: %d \"%s\"\n",errno,strerror(errno));

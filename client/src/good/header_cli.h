@@ -9,15 +9,12 @@ std::map<uint32_t, uint32_t> old_and_new_sector;
 #define INPSIZE 100
 #define DISK "/dev/loop0"
 #define SECTOR_SIZE 512
-#ifdef WINDOWS
-#define bool char
-#define false 0
-#define true 1
-#endif
+
 // Default order is 4.
 #define DEFAULT_ORDER 4
 int order = DEFAULT_ORDER;
-
+#define NUM_VALUES 3
+#define LEN_VALUES 15
 // Minimum order is necessarily 3.  We set the maximum
 // order arbitrarily.  You may change the maximum order.
 #define MIN_ORDER 3
@@ -41,29 +38,6 @@ typedef struct info {
 	sect_type root_sect;
 	sect_type last_sect_used;
 } info;
-
-
-
-// TYPES.
-
-/* Type representing the record
- * to which a given key refers.
- * In a real B+ tree system, the
- * record would hold data (in a database)
- * or a file (in an operating system)
- * or some other information.
- * Users can rewrite this part of the code
- * to change the type and content
- * of the value field.
- */
-typedef struct record {
-	int key;
-	int value;
-	struct record * next;
-	uint32_t next_sect;
-	struct record * prev;
-	uint32_t prev_sect;
-} record;
 
 /* Type representing a node in the B+ tree.
  * This type is general enough to serve for both
@@ -103,7 +77,35 @@ typedef struct node {
 	int num_keys;
 	struct node * next; // Used for queue.
 	uint32_t sector_next;
+	uint32_t sector;
 } node;
+
+
+
+// TYPES.
+
+/* Type representing the record
+ * to which a given key refers.
+ * In a real B+ tree system, the
+ * record would hold data (in a database)
+ * or a file (in an operating system)
+ * or some other information.
+ * Users can rewrite this part of the code
+ * to change the type and content
+ * of the value field.
+ */
+
+typedef struct record {
+	int key;
+	char values[NUM_VALUES][LEN_VALUES];
+	node * parent;
+	uint32_t parent_sect;
+	struct record * next;
+	uint32_t next_sect;
+	struct record * prev;
+	uint32_t prev_sect;
+	uint32_t sector;
+} record;
 
 
 // GLOBALS.

@@ -310,6 +310,7 @@ int path_to_root( node * root, node * child ) {
  * to the keys also appear next to their respective
  * keys, in hexadecimal notation.
  */
+
 void print_tree( node * root ) {
 	record * p, *val;
 	node * n = NULL;
@@ -366,6 +367,62 @@ void print_tree( node * root ) {
 	printf("\n\n\n");
 }
 
+
+void send_tree( node * root ) {
+	record *p, *val;
+	node * n = NULL;
+	int i = 0;
+	int rank = 0;
+	int new_rank = 0;
+
+	if (root == NULL) {
+		return;
+	}
+	queue = NULL;
+	enqueue(root);
+	while( queue != NULL ) {
+		n = dequeue();
+		
+		if (n->parent != NULL && n == n->parent->pointers[0]) {
+			new_rank = path_to_root( root, n );
+			if (new_rank != rank) {
+				rank = new_rank;
+				printf("\n");
+			}
+		}
+		if (verbose_output) 
+			printf("(%lx)", (unsigned long)n);
+		for (i = 0; i < n->num_keys; i++) {
+			if (verbose_output)
+				printf("%lx ", (unsigned long)n->pointers[i]);
+			if (!n->is_leaf)
+				printf("%d ",n->keys[i]);
+			if (n->is_leaf) {
+				val = (record *)n->pointers[i];
+				printf("(%d - ",n->keys[i]);
+				p = n->pointers[i];
+				while (p != NULL){
+					cout << p->value;
+					p = p->next;
+					if (p != NULL)
+						cout << " : "; 
+				}
+				cout << ")";
+			}
+		}
+		if (!n->is_leaf)
+			for (i = 0; i <= n->num_keys; i++)
+				enqueue(n->pointers[i]);
+		if (verbose_output) {
+			if (n->is_leaf) 
+				printf("%lx ", (unsigned long)n->pointers[order - 1]);
+			else
+				printf("%lx ", (unsigned long)n->pointers[n->num_keys]);
+		}
+		printf("| ");
+	}
+	printf("\n\n\n");
+}
 
 /* Finds the record under a given key and prints an
  * appropriate message to stdout.
@@ -520,6 +577,13 @@ record * make_record(int value) {
 	else {
 		new_record->value = value;
 		new_record->next = NULL;
+		new_record->next_sect = 0;
+		new_record->prev_sect = 0;
+		new_record->prev = NULL;
+		new_record->parent = NULL;
+		new_record->parent_sect = 0;
+		new_node->sector = last_sect_used;
+		last_sect_used++;
 	}
 	return new_record;
 }
@@ -548,7 +612,11 @@ node * make_node( void ) {
 	new_node->is_leaf = false;
 	new_node->num_keys = 0;
 	new_node->parent = NULL;
+	new_node->sector_parent = 0;
 	new_node->next = NULL;
+	new_node->sector_next = 0;
+	new_node->sector = last_sect_used;
+	last_sect_used++;
 	return new_node;
 }
 
@@ -566,6 +634,7 @@ node * make_leaf( void ) {
  * to find the index of the parent's pointer to 
  * the node to the left of the key to be inserted.
  */
+ //here I suppose to have both parent and left node in main memory
 int get_left_index(node * parent, node * left) {
 
 	int left_index = 0;
@@ -579,6 +648,7 @@ int get_left_index(node * parent, node * left) {
  * key into a leaf.
  * Returns the altered leaf.
  */
+ //here I suppose to have the leaf node and the record in main memory
 node * insert_into_leaf( node * leaf, int key, record * pointer ) {
 
 	int i, insertion_point;
@@ -593,6 +663,7 @@ node * insert_into_leaf( node * leaf, int key, record * pointer ) {
 	}
 	leaf->keys[insertion_point] = key;
 	leaf->pointers[insertion_point] = pointer;
+	leaf->sectors[insertion_point] = pointer->sector;
 	leaf->num_keys++;
 	return leaf;
 }
@@ -853,6 +924,8 @@ node * insert( node * root, int key, int value ) {
 		if (pp->value == value)
 			return root;
 		pp->next = make_record(value);
+		pp->next->prev = pp;
+		pp->next->parent = pp->parent;
 		return root;
 	}
 

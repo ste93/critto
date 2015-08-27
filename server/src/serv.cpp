@@ -10,6 +10,7 @@
 //#define _GNU_SOURCE
 
 
+
 #include <sys/stat.h>
 #include <unistd.h>
 #include <stdio.h>
@@ -17,6 +18,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include "read.cpp"
+#include <iostream>
 #include "write.cpp"
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -29,6 +31,12 @@
 #define SOCKET_ERROR   ((int)-1)
 #define SIZEBUF 1000000
 typedef uint32_t sect_type;
+
+typedef struct info {
+	sect_type root_sect;
+	sect_type last_sect_used;
+} info;
+
 int writen(int sock, char *buf, int len) {
 	int nsent = 0, ris;
 	while (nsent < len) {
@@ -76,6 +84,7 @@ void *thread_cli(void *sock) {
 			sect = ntohl(sect_net);
 			if ((ris = read_sect(sect)) == NULL)		
 				pthread_exit(NULL);
+			
 			if (writen(socket, (char*)ris, SECTOR_SIZE)<=0) {
 				pthread_exit(NULL);
 			}
@@ -86,10 +95,11 @@ void *thread_cli(void *sock) {
 				pthread_exit(NULL);
 			}
 			sect = ntohl(sect_net);
-			if(readn(socket, (char *) &sect_net, 4)<=0){
+			if(readn(socket, (char *) &size_net, 4)<=0){
 				pthread_exit(NULL);
 			}
 			size = ntohl(size_net);
+			cout << size_net << "\n";
 			ris = malloc(size);
 			if (readn(socket, (char*)ris, size)<=0) {
 				pthread_exit(NULL);
